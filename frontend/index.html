@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="./image.png" type="image/x-icon">
+    <title>Math Guru</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div id="loading-overlay" class="overlay hidden">
+        <div class="bg-white p-6 rounded-lg shadow-lg text-center">
+            <div class="loader"></div>
+            <p class="mt-4 text-lg font-semibold text-gray-700">Loading...</p>
+        </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-4 text-center">Math Guru</h1>
+        
+        <div id="question-form" class="mb-4">
+            <input 
+                type="text" 
+                id="question-input" 
+                placeholder="Enter your math question" 
+                class="w-full p-2 border rounded-md mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+            <button 
+                id="submit-question" 
+                class="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600"
+            >
+                Submit Question
+            </button>
+        </div>
+
+        <div id="response-section" class="hidden mb-4">
+            <h2 class="text-lg font-semibold mb-2">Answer</h2>
+            <p id="response-text" class="bg-gray-100 p-3 rounded-md mb-2"></p>
+            <h2 class="text-lg font-semibold mb-2">Steps</h2>
+            <ol id="steps-list" class="bg-gray-100 p-3 rounded-md list-decimal list-inside"></ol>
+        </div>
+
+        <div id="error-section" class="hidden text-red-500 text-sm mt-2"></div>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:8000";
+        let sessionId = generateUUID();
+
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        async function submitQuestion() {
+            const questionInput = document.getElementById("question-input").value;
+            const errorSection = document.getElementById("error-section");
+            const responseSection = document.getElementById("response-section");
+            const responseText = document.getElementById("response-text");
+            const stepsList = document.getElementById("steps-list");
+            const loadingOverlay = document.getElementById("loading-overlay");
+
+            if (!questionInput.trim()) {
+                errorSection.classList.remove("hidden");
+                errorSection.textContent = "Please enter a math question.";
+                return;
+            }
+
+            loadingOverlay.classList.remove("hidden");
+            responseSection.classList.add("hidden");
+            errorSection.classList.add("hidden");
+
+            try {
+                const response = await fetch(`${API_URL}/ask`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ question: questionInput, session_id: sessionId })
+                });
+
+                const data = await response.json();
+
+                loadingOverlay.classList.add("hidden");
+
+                if (response.ok) {
+                    errorSection.classList.add("hidden");
+                    responseSection.classList.remove("hidden");
+                    responseText.textContent = data.response;
+                    stepsList.innerHTML = "";
+                    data.steps.forEach(step => {
+                        const li = document.createElement("li");
+                        li.textContent = step;
+                        stepsList.appendChild(li);
+                    });
+                    sessionId = generateUUID();
+                    document.getElementById("question-input").value = "";
+                } else {
+                    errorSection.classList.remove("hidden");
+                    errorSection.textContent = data.detail || "Error submitting question.";
+                }
+            } catch (error) {
+                loadingOverlay.classList.add("hidden");
+                errorSection.classList.remove("hidden");
+                errorSection.textContent = "Network error. Please try again.";
+            }
+        }
+
+        document.getElementById("submit-question").addEventListener("click", submitQuestion);
+    </script>
+</body>
+</html>
